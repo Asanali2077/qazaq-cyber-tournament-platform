@@ -1,0 +1,22 @@
+{
+  "name": "qazaq-cyber-tournament-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run prisma:generate --workspace @qazaq/api",
+    "dev": "dotenv -e .env -- concurrently \"npm run dev --workspace @qazaq/api\" \"npm run dev --workspace @qazaq/web\"",
+    "build": "dotenv -e .env -- npm run build --workspace @qazaq/api && dotenv -e .env -- npm run build --workspace @qazaq/web",
+    "lint": "npm run lint --workspace @qazaq/api && npm run lint --workspace @qazaq/web",
+    "db:generate": "npm run prisma:generate --workspace @qazaq/api",
+    "db:push": "dotenv -e .env -- npm run prisma:push --workspace @qazaq/api",
+    "db:seed": "dotenv -e .env -- npm run prisma:seed --workspace @qazaq/api",
+    "db:setup": "npm run db:generate && npm run db:push && npm run db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv-cli": "^8.0.0"
+  }
+}
