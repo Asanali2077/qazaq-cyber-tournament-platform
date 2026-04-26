@@ -395,6 +395,10 @@ export default function TournamentDetailPage() {
                               tournament.status !== "REGISTRATION"
                             }
                             onClick={async () => {
+                              if (tournament.status !== "REGISTRATION") {
+                                toast.error("Registration is closed for this tournament");
+                                return;
+                              }
                               try {
                                 setRegisteringTeamId(team.id);
                                 await apiFetch(`/tournaments/${params.id}/register-team`, {
@@ -418,11 +422,16 @@ export default function TournamentDetailPage() {
                               ? "Registered"
                               : registeringTeamId === team.id
                                 ? "Submitting..."
-                                : "Register"}
+                                : "Join Tournament"}
                           </Button>
                         </div>
                       );
                     })}
+                    {tournament.status !== "REGISTRATION" ? (
+                      <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100">
+                        Team registration is currently closed ({tournament.status}).
+                      </div>
+                    ) : null}
                   </div>
                 )
               ) : (

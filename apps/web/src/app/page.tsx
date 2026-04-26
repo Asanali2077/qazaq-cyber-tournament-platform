@@ -36,7 +36,7 @@ export default function LandingPage() {
     <PageShell>
       <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-8">
-          <Badge variant="cyan">Live Esports Operations</Badge>
+          <Badge variant="cyan">Production Tournament Operations</Badge>
           <div className="space-y-4">
             <motion.h1
               initial={{ opacity: 0, y: 18 }}
@@ -44,7 +44,7 @@ export default function LandingPage() {
               transition={{ duration: 0.6 }}
               className="font-display text-4xl uppercase leading-tight tracking-[0.08em] text-white md:text-6xl"
             >
-              Run brackets with the clarity of a control room.
+              Run competitive events with pro-level control and live clarity.
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 18 }}
@@ -52,9 +52,9 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="max-w-2xl text-lg leading-8 text-slate-300"
             >
-              Qazaq Cyber Tournament Platform gives organizers, admins, and players one
-              futuristic hub for tournament operations, team coordination, and live
-              bracket updates.
+              Coordinate teams, approvals, brackets, and match progression from one
+              real-time command center. Built for organizers, admins, and players
+              who need reliable tournament workflows.
             </motion.p>
           </div>
           <motion.div
@@ -66,20 +66,20 @@ export default function LandingPage() {
             <Button asChild size="lg">
               <Link href="/register">
                 <Rocket className="size-4" />
-                Launch Platform
+                Start Competing
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg">
-              <Link href="/tournaments">Browse Tournaments</Link>
+              <Link href="/tournaments">Explore Tournaments</Link>
             </Button>
           </motion.div>
           <div className="grid gap-4 sm:grid-cols-3">
             {[
-              ["Realtime Brackets", "Socket-driven updates"],
-              ["Team Workflow", "Invite and approve"],
-              ["Admin Ready", "Live score control"]
+              ["Realtime Brackets", "Socket-driven tournament updates"],
+              ["Team Workflow", "Invite-code rosters and approvals"],
+              ["Admin Controls", "Generate, reset, and score matches"]
             ].map(([title, text]) => (
-              <Card key={title} className="p-5">
+              <Card key={title} className="p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/20">
                 <p className="font-display text-sm uppercase tracking-[0.18em] text-cyan-300">
                   {title}
                 </p>
@@ -105,9 +105,7 @@ export default function LandingPage() {
                   <p className="font-display text-xs uppercase tracking-[0.28em] text-cyan-300">
                     Match Feed
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
-                    Kazakhstan Invitational
-                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">Kazakhstan Invitational</p>
                 </div>
                 <Badge variant="green">Live</Badge>
               </div>
@@ -146,7 +144,7 @@ export default function LandingPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: index * 0.06 }}
           >
-            <Card className="h-full">
+            <Card className="h-full transition hover:-translate-y-0.5 hover:border-cyan-400/20">
               <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
                 <item.icon className="size-5" />
               </div>
@@ -154,6 +152,19 @@ export default function LandingPage() {
               <CardDescription className="mt-3 leading-7">{item.text}</CardDescription>
             </Card>
           </motion.div>
+        ))}
+      </section>
+
+      <section className="mt-16 grid gap-5 md:grid-cols-3">
+        {[
+          ["Users seeded", "9 demo accounts"],
+          ["Tournament formats", "Single + Double elimination"],
+          ["Realtime transport", "Socket.IO rooms per tournament"]
+        ].map(([label, value]) => (
+          <Card key={label} className="border-white/10 bg-white/[0.03] p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
+            <p className="mt-3 font-display text-2xl uppercase tracking-[0.08em] text-white">{value}</p>
+          </Card>
         ))}
       </section>
     </PageShell>

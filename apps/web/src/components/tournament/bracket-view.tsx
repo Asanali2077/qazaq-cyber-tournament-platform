@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MutableRefObject
-} from "react";
+import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Crown, GitBranch, Radio, Swords, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +15,40 @@ type Connection = {
   kind: "win" | "lose";
   active: boolean;
 };
+type BracketSection = {
+  type: BracketType;
+  rounds: Array<{
+    round: number;
+    matches: TournamentMatch[];
+  }>;
+};
+type PositionedMatch = {
+  match: TournamentMatch;
+  roundIndex: number;
+  matchIndex: number;
+  x: number;
+  y: number;
+};
+type SectionLayout = {
+  type: BracketType;
+  width: number;
+  height: number;
+  rounds: Array<{
+    round: number;
+    roundIndex: number;
+    x: number;
+  }>;
+  positionedMatches: PositionedMatch[];
+  connections: Connection[];
+};
+
+const COLUMN_WIDTH = 320;
+const CARD_WIDTH = 280;
+const CARD_HEIGHT = 190;
+const ROW_HEIGHT = 120;
+const MATCH_VERTICAL_GAP = 20;
+const BRACKET_PADDING = 28;
+const ROUND_HEADER_HEIGHT = 58;
 
 const groupByRounds = (matches: TournamentMatch[]) =>
   matches.reduce<GroupedRounds>((accumulator, match) => {
@@ -58,59 +86,126 @@ const statusBadge = (status: TournamentMatch["status"]) => {
   }
 };
 
-const measureConnections = (
-  boardRef: MutableRefObject<HTMLDivElement | null>,
-  cardRefs: MutableRefObject<Record<string, HTMLDivElement | null>>,
-  matches: TournamentMatch[]
-) => {
-  const boardRect = boardRef.current?.getBoundingClientRect();
+const buildSections = (matches: TournamentMatch[]): BracketSection[] => {
+  const grouped = matches.reduce<Record<BracketType, TournamentMatch[]>>(
+    (accumulator, match) => {
+      accumulator[match.bracketType] = [...(accumulator[match.bracketType] ?? []), match];
+      return accumulator;
+    },
+    {
+      WINNERS: [],
+      LOSERS: [],
+      GRAND_FINAL: []
+    }
+  );
 
-  if (!boardRect) {
-    return [];
+  return (Object.keys(grouped) as BracketType[])
+    .filter((type) => grouped[type].length > 0)
+    .map((type) => {
+      const rounds = groupByRounds(grouped[type]);
+      return {
+        type,
+        rounds: Object.keys(rounds)
+          .map((round) => Number(round))
+          .sort((a, b) => a - b)
+          .map((round) => ({
+            round,
+            matches: rounds[round]
+          }))
+      };
+    });
+};
+
+const getSpacingFactor = (type: BracketType, roundIndex: number) => {
+  if (type === "GRAND_FINAL") {
+    return 1;
   }
 
+  const capped = Math.min(roundIndex, 2);
+  return type === "WINNERS" ? 2 ** capped : Math.min(4, 1 + capped);
+};
+
+const buildSectionLayout = (section: BracketSection): SectionLayout => {
+  const positionedMatches: PositionedMatch[] = [];
+  const rounds = section.rounds.map((entry, roundIndex) => ({
+    round: entry.round,
+    roundIndex,
+    x: BRACKET_PADDING + roundIndex * COLUMN_WIDTH
+  }));
+
+  section.rounds.forEach((round, roundIndex) => {
+    const spacingFactor = getSpacingFactor(section.type, roundIndex);
+    const verticalStep = ROW_HEIGHT * spacingFactor + MATCH_VERTICAL_GAP;
+    round.matches.forEach((match, matchIndex) => {
+      const x = BRACKET_PADDING + roundIndex * COLUMN_WIDTH;
+      const y =
+        ROUND_HEADER_HEIGHT +
+        BRACKET_PADDING +
+        matchIndex * verticalStep +
+        ((spacingFactor - 1) * ROW_HEIGHT) / 2;
+
+      positionedMatches.push({
+        match,
+        roundIndex,
+        matchIndex,
+        x,
+        y
+      });
+    });
+  });
+
+  const byId = new Map(positionedMatches.map((entry) => [entry.match.id, entry]));
   const connections: Connection[] = [];
 
-  matches.forEach((match) => {
-    const sourceRect = cardRefs.current[match.id]?.getBoundingClientRect();
+  positionedMatches.forEach((node) => {
+    const source = node.match;
+    const sourceX = node.x + CARD_WIDTH;
+    const sourceY = node.y + CARD_HEIGHT / 2;
 
-    if (!sourceRect) {
-      return;
-    }
-
-    const appendConnection = (
-      targetMatchId: string | null | undefined,
-      kind: "win" | "lose"
-    ) => {
+    const append = (targetMatchId: string | null | undefined, kind: "win" | "lose") => {
       if (!targetMatchId) {
         return;
       }
-
-      const targetRect = cardRefs.current[targetMatchId]?.getBoundingClientRect();
-
-      if (!targetRect) {
+      const target = byId.get(targetMatchId);
+      if (!target) {
         return;
       }
 
-      const startX = sourceRect.right - boardRect.left;
-      const startY = sourceRect.top - boardRect.top + sourceRect.height / 2;
-      const endX = targetRect.left - boardRect.left;
-      const endY = targetRect.top - boardRect.top + targetRect.height / 2;
-      const controlOffset = Math.max(30, (endX - startX) * 0.45);
+      const targetX = target.x;
+      const targetY = target.y + CARD_HEIGHT / 2;
+      const distance = Math.max(50, targetX - sourceX);
+      const curve = Math.max(42, distance * 0.44);
 
       connections.push({
-        id: `${match.id}-${targetMatchId}-${kind}`,
+        id: `${source.id}-${targetMatchId}-${kind}`,
         kind,
-        active: match.status === "COMPLETED" || match.status === "LIVE",
-        path: `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}`
+        active: source.status === "COMPLETED" || source.status === "LIVE",
+        path: `M ${sourceX} ${sourceY} C ${sourceX + curve} ${sourceY}, ${targetX - curve} ${targetY}, ${targetX} ${targetY}`
       });
     };
 
-    appendConnection(match.nextWinMatchId, "win");
-    appendConnection(match.nextLoseMatchId, "lose");
+    append(source.nextWinMatchId, "win");
+    append(source.nextLoseMatchId, "lose");
   });
 
-  return connections;
+  const maxBottom =
+    positionedMatches.length > 0
+      ? Math.max(...positionedMatches.map((entry) => entry.y + CARD_HEIGHT))
+      : ROUND_HEADER_HEIGHT + BRACKET_PADDING + CARD_HEIGHT;
+  const width =
+    rounds.length > 0
+      ? BRACKET_PADDING * 2 + (rounds.length - 1) * COLUMN_WIDTH + CARD_WIDTH
+      : BRACKET_PADDING * 2 + CARD_WIDTH;
+  const height = maxBottom + BRACKET_PADDING;
+
+  return {
+    type: section.type,
+    width,
+    height,
+    rounds,
+    positionedMatches,
+    connections
+  };
 };
 
 export function BracketView({
@@ -122,55 +217,8 @@ export function BracketView({
   highlightedMatchIds?: string[];
   liveStateLabel?: string;
 }) {
-  const boardRef = useRef<HTMLDivElement | null>(null);
-  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [connections, setConnections] = useState<Connection[]>([]);
-
-  const grouped = useMemo(
-    () =>
-      matches.reduce<Record<BracketType, TournamentMatch[]>>(
-        (accumulator, match) => {
-          accumulator[match.bracketType] = [...(accumulator[match.bracketType] ?? []), match];
-          return accumulator;
-        },
-        {
-          WINNERS: [],
-          LOSERS: [],
-          GRAND_FINAL: []
-        }
-      ),
-    [matches]
-  );
-
-  useEffect(() => {
-    if (!boardRef.current) {
-      return;
-    }
-
-    const update = () => {
-      setConnections(measureConnections(boardRef, cardRefs, matches));
-    };
-
-    const observer = new ResizeObserver(() => {
-      update();
-    });
-
-    observer.observe(boardRef.current);
-    Object.values(cardRefs.current).forEach((node) => {
-      if (node) {
-        observer.observe(node);
-      }
-    });
-
-    const rafId = requestAnimationFrame(update);
-    window.addEventListener("resize", update);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      observer.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [matches]);
+  const sections = useMemo(() => buildSections(matches), [matches]);
+  const layouts = useMemo(() => sections.map((section) => buildSectionLayout(section)), [sections]);
 
   if (matches.length === 0) {
     return (
@@ -210,39 +258,10 @@ export function BracketView({
       </div>
 
       <div className="overflow-x-auto pb-2">
-        <div ref={boardRef} className="relative min-w-[980px] space-y-10 pr-10">
-          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
-            <AnimatePresence>
-              {connections.map((connection) => (
-                <motion.path
-                  key={connection.id}
-                  d={connection.path}
-                  fill="none"
-                  stroke={connection.kind === "win" ? "#22d3ee" : "#f59e0b"}
-                  strokeDasharray={connection.kind === "lose" ? "6 7" : undefined}
-                  strokeLinecap="round"
-                  strokeWidth={connection.active ? 2.8 : 1.5}
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{
-                    pathLength: 1,
-                    opacity: connection.active ? 0.95 : 0.3
-                  }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.45, ease: "easeOut" }}
-                />
-              ))}
-            </AnimatePresence>
-          </svg>
-
-          {(Object.keys(grouped) as BracketType[]).map((type) => {
-            const bucket = grouped[type];
-
-            if (bucket.length === 0) {
-              return null;
-            }
-
+        <div className="space-y-10 pr-6">
+          {layouts.map((layout) => {
+            const type = layout.type;
             const Icon = sectionIcon(type);
-            const rounds = groupByRounds(bucket);
 
             return (
               <section key={type} className="space-y-4">
@@ -260,117 +279,156 @@ export function BracketView({
                   </div>
                 </div>
 
-                <div className="flex gap-6">
-                  {Object.entries(rounds).map(([round, roundMatches], columnIndex) => (
-                    <div key={round} className="flex w-[300px] flex-col gap-4">
-                      <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-slate-300">
-                        Round {round}
-                      </div>
-                      {roundMatches.map((match, matchIndex) => {
-                        const highlighted = highlightedMatchIds.includes(match.id);
+                <div
+                  className="relative"
+                  style={{
+                    width: `${layout.width}px`,
+                    height: `${layout.height}px`
+                  }}
+                >
+                  <svg className="pointer-events-none absolute inset-0 h-full w-full">
+                    <AnimatePresence>
+                      {layout.connections.map((connection) => (
+                        <motion.path
+                          key={connection.id}
+                          d={connection.path}
+                          fill="none"
+                          stroke={connection.kind === "win" ? "#22d3ee" : "#f59e0b"}
+                          strokeDasharray={connection.kind === "lose" ? "6 8" : undefined}
+                          strokeLinecap="round"
+                          strokeWidth={connection.active ? 2.8 : 2}
+                          initial={{ pathLength: 0, opacity: 0 }}
+                          animate={{
+                            pathLength: 1,
+                            opacity: connection.active ? 0.95 : 0.32
+                          }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.45, ease: "easeOut" }}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </svg>
 
-                        return (
-                          <motion.div
-                            key={match.id}
-                            initial={{ opacity: 0, y: 18 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{
-                              duration: 0.3,
-                              delay: columnIndex * 0.08 + matchIndex * 0.05
-                            }}
-                            ref={(node) => {
-                              cardRefs.current[match.id] = node;
-                            }}
-                            className="relative"
-                          >
-                            <Card
-                              className={cn(
-                                "space-y-4 border-white/10 bg-slate-950/85 p-5",
-                                highlighted &&
-                                  "border-cyan-400/40 shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_0_36px_rgba(34,211,238,0.18)]"
-                              )}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">
-                                    {match.label ?? `Match ${match.slot}`}
-                                  </p>
-                                  <p className="text-xs text-slate-500">Slot #{match.slot}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {match.status === "LIVE" ? (
-                                    <span className="relative flex size-2.5">
-                                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-75" />
-                                      <span className="relative inline-flex size-2.5 rounded-full bg-amber-300" />
-                                    </span>
-                                  ) : null}
-                                  <Badge variant={statusBadge(match.status) as never}>
-                                    {match.status}
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              {[match.teamA, match.teamB].map((team, index) => {
-                                const isWinner = team?.id && team.id === match.winnerId;
-                                const score = index === 0 ? match.scoreA : match.scoreB;
-                                const isBye =
-                                  match.isAutoAdvanced &&
-                                  !team &&
-                                  ((index === 0 && match.teamB) || (index === 1 && match.teamA));
-
-                                return (
-                                  <motion.div
-                                    key={`${match.id}-${index}-${score}`}
-                                    initial={highlighted ? { scale: 0.98, opacity: 0.7 } : false}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ duration: 0.25 }}
-                                    className={cn(
-                                      "flex items-center justify-between rounded-2xl border px-4 py-3 transition",
-                                      isWinner
-                                        ? "border-emerald-400/30 bg-emerald-400/10"
-                                        : "border-white/10 bg-slate-900/80"
-                                    )}
-                                  >
-                                    <div>
-                                      <p className="font-medium text-white">
-                                        {team?.name ?? (isBye ? "BYE / Walkover" : "Waiting for team")}
-                                      </p>
-                                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                                        {index === 0 ? "Team A" : "Team B"}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      {team ? (
-                                        <motion.span
-                                          key={`${match.id}-${index}-${score}-${match.updatedAt}`}
-                                          initial={highlighted ? { y: -6, opacity: 0.45 } : false}
-                                          animate={{ y: 0, opacity: 1 }}
-                                          transition={{ duration: 0.2 }}
-                                          className="block text-xl font-semibold text-slate-100"
-                                        >
-                                          {score}
-                                        </motion.span>
-                                      ) : (
-                                        <span className="block text-sm uppercase tracking-[0.2em] text-slate-500">
-                                          {isBye ? "Auto" : "--"}
-                                        </span>
-                                      )}
-                                      {isWinner ? (
-                                        <span className="text-[10px] uppercase tracking-[0.22em] text-emerald-200">
-                                          Advanced
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  </motion.div>
-                                );
-                              })}
-                            </Card>
-                          </motion.div>
-                        );
-                      })}
+                  {layout.rounds.map((roundMeta) => (
+                    <div
+                      key={`${type}-${roundMeta.round}`}
+                      className="absolute rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-slate-300"
+                      style={{
+                        left: `${roundMeta.x}px`,
+                        top: `${BRACKET_PADDING / 2}px`
+                      }}
+                    >
+                      Round {roundMeta.round}
                     </div>
                   ))}
+
+                  {layout.positionedMatches.map((node) => {
+                    const { match, roundIndex, matchIndex, x, y } = node;
+                    const highlighted = highlightedMatchIds.includes(match.id);
+
+                    return (
+                      <motion.div
+                        key={match.id}
+                        initial={{ opacity: 0, y: 18 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{
+                          duration: 0.3,
+                          delay: roundIndex * 0.08 + matchIndex * 0.05
+                        }}
+                        className="absolute"
+                        style={{
+                          left: `${x}px`,
+                          top: `${y}px`,
+                          width: `${CARD_WIDTH}px`,
+                          minHeight: `${CARD_HEIGHT}px`
+                        }}
+                      >
+                        <Card
+                          className={cn(
+                            "h-full min-h-[190px] space-y-4 border-white/10 bg-slate-950/85 p-5 transition",
+                            highlighted &&
+                              "border-cyan-400/40 shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_0_36px_rgba(34,211,238,0.18)]"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+                                {match.label ?? `Match ${match.slot}`}
+                              </p>
+                              <p className="text-xs text-slate-500">Slot #{match.slot}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {match.status === "LIVE" ? (
+                                <span className="relative flex size-2.5">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-75" />
+                                  <span className="relative inline-flex size-2.5 rounded-full bg-amber-300" />
+                                </span>
+                              ) : null}
+                              <Badge variant={statusBadge(match.status) as never} className="min-w-20 justify-center">
+                                {match.status}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {[match.teamA, match.teamB].map((team, index) => {
+                            const isWinner = team?.id && team.id === match.winnerId;
+                            const score = index === 0 ? match.scoreA : match.scoreB;
+                            const isBye =
+                              match.isAutoAdvanced &&
+                              !team &&
+                              ((index === 0 && match.teamB) || (index === 1 && match.teamA));
+
+                            return (
+                              <motion.div
+                                key={`${match.id}-${index}-${score}`}
+                                initial={highlighted ? { scale: 0.98, opacity: 0.7 } : false}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.25 }}
+                                className={cn(
+                                  "flex items-center justify-between rounded-2xl border px-4 py-3 transition",
+                                  isWinner
+                                    ? "border-emerald-400/30 bg-emerald-400/10"
+                                    : "border-white/10 bg-slate-900/80"
+                                )}
+                              >
+                                <div>
+                                  <p className="font-medium text-white">
+                                    {team?.name ?? (isBye ? "BYE / Walkover" : "Waiting for team")}
+                                  </p>
+                                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                                    {index === 0 ? "Team A" : "Team B"}
+                                  </p>
+                                </div>
+                                <div className="min-w-14 text-right">
+                                  {team ? (
+                                    <motion.span
+                                      key={`${match.id}-${index}-${score}-${match.updatedAt}`}
+                                      initial={highlighted ? { y: -6, opacity: 0.45 } : false}
+                                      animate={{ y: 0, opacity: 1 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="block text-xl font-semibold text-slate-100"
+                                    >
+                                      {score}
+                                    </motion.span>
+                                  ) : (
+                                    <span className="block text-sm uppercase tracking-[0.2em] text-slate-500">
+                                      {isBye ? "Auto" : "--"}
+                                    </span>
+                                  )}
+                                  {isWinner ? (
+                                    <span className="text-[10px] uppercase tracking-[0.22em] text-emerald-200">
+                                      Advanced
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </section>
             );

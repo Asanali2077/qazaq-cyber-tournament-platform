@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
   return (
     <PageShell>
-      <div className="space-y-10">
+      <div className="space-y-8">
         <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <Card className="overflow-hidden">
             <div className="flex flex-wrap items-start justify-between gap-6">
@@ -82,7 +82,7 @@ export default function DashboardPage() {
           <Card className="space-y-4">
             <CardTitle>Team Console</CardTitle>
             <CardDescription>
-              Create a roster, share an invite code, or join an existing team.
+              Create your roster, share invite codes, or join a teammate instantly.
             </CardDescription>
             <div className="space-y-3">
               <Input
@@ -103,6 +103,10 @@ export default function DashboardPage() {
                 className="w-full"
                 disabled={submittingAction === "create"}
                 onClick={async () => {
+                  if (!createTeam.name.trim()) {
+                    toast.error("Team name is required");
+                    return;
+                  }
                   try {
                     setSubmittingAction("create");
                     await apiFetch("/teams", {
@@ -134,6 +138,10 @@ export default function DashboardPage() {
                 className="w-full"
                 disabled={submittingAction === "join"}
                 onClick={async () => {
+                  if (!inviteCode.trim()) {
+                    toast.error("Enter an invite code first");
+                    return;
+                  }
                   try {
                     setSubmittingAction("join");
                     await apiFetch("/teams/join", {
@@ -273,7 +281,11 @@ export default function DashboardPage() {
                 Invite code and roster details for your current squad.
               </CardDescription>
             </div>
-            {teams.length === 0 ? (
+            {loading ? (
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/40 p-5 text-sm text-slate-400">
+                Loading team workspace...
+              </div>
+            ) : teams.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-white/10 bg-slate-950/40 p-5 text-sm text-slate-400">
                 No teams yet. Create a team or join with an invite code to unlock tournament registration.
               </div>
@@ -319,6 +331,11 @@ export default function DashboardPage() {
                 </CardDescription>
               </div>
               <div className="space-y-3">
+                {loading ? (
+                  <div className="rounded-[24px] border border-white/10 bg-slate-950/40 p-5 text-sm text-slate-400">
+                    Loading upcoming matches...
+                  </div>
+                ) : null}
                 {(dashboard?.upcomingMatches ?? []).map((match) => (
                   <div
                     key={match.id}

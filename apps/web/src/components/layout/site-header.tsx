@@ -22,8 +22,8 @@ export function SiteHeader() {
   const { user, logout, loading } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
-      <div className="container flex h-20 items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
+      <div className="container flex h-20 items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-3">
           <div className="flex size-11 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10 text-cyan-200 shadow-neon">
             <Trophy className="size-5" />
@@ -36,7 +36,7 @@ export function SiteHeader() {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-2 md:flex">
+        <nav className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 md:flex">
           {links.map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
 
@@ -46,7 +46,7 @@ export function SiteHeader() {
                 href={link.href}
                 className={cn(
                   "rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white",
-                  active && "bg-white/10 text-white"
+                  active && "bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-300/30"
                 )}
               >
                 {link.label}
@@ -55,10 +55,15 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="flex items-center gap-3">
-          {loading ? null : user ? (
+        <div className="flex items-center gap-2">
+          {loading ? (
+            <div className="h-9 w-24 animate-pulse rounded-full border border-white/10 bg-white/5" />
+          ) : user ? (
             <>
-              <Badge variant={user.role === "ADMIN" ? "rose" : user.role === "ORGANIZER" ? "violet" : "cyan"}>
+              <Badge
+                variant={user.role === "ADMIN" ? "rose" : user.role === "ORGANIZER" ? "violet" : "cyan"}
+                className="shadow-[0_0_14px_rgba(15,23,42,0.35)]"
+              >
                 {user.role}
               </Badge>
               <div className="hidden text-right sm:block">
@@ -68,6 +73,7 @@ export function SiteHeader() {
               <Button
                 variant="secondary"
                 size="sm"
+                className="min-w-[110px]"
                 onClick={async () => {
                   try {
                     await logout();
@@ -111,7 +117,7 @@ export function SiteHeader() {
               key={link.href}
               href={link.href}
               className={cn(
-                "rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300",
+                "rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 transition",
                 active && "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
               )}
             >
