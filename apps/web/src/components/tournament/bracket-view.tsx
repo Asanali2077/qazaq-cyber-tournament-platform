@@ -44,8 +44,7 @@ type SectionLayout = {
 
 const COLUMN_WIDTH = 320;
 const CARD_WIDTH = 280;
-const CARD_HEIGHT = 190;
-const ROW_HEIGHT = 120;
+const CARD_HEIGHT = 228;
 const MATCH_VERTICAL_GAP = 20;
 const BRACKET_PADDING = 28;
 const ROUND_HEADER_HEIGHT = 58;
@@ -135,14 +134,15 @@ const buildSectionLayout = (section: BracketSection): SectionLayout => {
 
   section.rounds.forEach((round, roundIndex) => {
     const spacingFactor = getSpacingFactor(section.type, roundIndex);
-    const verticalStep = ROW_HEIGHT * spacingFactor + MATCH_VERTICAL_GAP;
+    const baseStep = CARD_HEIGHT + MATCH_VERTICAL_GAP;
+    const verticalStep = baseStep * spacingFactor;
     round.matches.forEach((match, matchIndex) => {
       const x = BRACKET_PADDING + roundIndex * COLUMN_WIDTH;
       const y =
         ROUND_HEADER_HEIGHT +
         BRACKET_PADDING +
         matchIndex * verticalStep +
-        ((spacingFactor - 1) * ROW_HEIGHT) / 2;
+        ((spacingFactor - 1) * baseStep) / 2;
 
       positionedMatches.push({
         match,
@@ -346,7 +346,7 @@ export function BracketView({
                       >
                         <Card
                           className={cn(
-                            "h-full min-h-[190px] space-y-4 border-white/10 bg-slate-950/85 p-5 transition",
+                            "h-full space-y-4 border-white/10 bg-slate-950/85 p-5 transition",
                             highlighted &&
                               "border-cyan-400/40 shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_0_36px_rgba(34,211,238,0.18)]"
                           )}
@@ -392,8 +392,8 @@ export function BracketView({
                                     : "border-white/10 bg-slate-900/80"
                                 )}
                               >
-                                <div>
-                                  <p className="font-medium text-white">
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-white">
                                     {team?.name ?? (isBye ? "BYE / Walkover" : "Waiting for team")}
                                   </p>
                                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">

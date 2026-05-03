@@ -73,20 +73,6 @@ export default function LandingPage() {
               <Link href="/tournaments">Explore Tournaments</Link>
             </Button>
           </motion.div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              ["Realtime Brackets", "Socket-driven tournament updates"],
-              ["Team Workflow", "Invite-code rosters and approvals"],
-              ["Admin Controls", "Generate, reset, and score matches"]
-            ].map(([title, text]) => (
-              <Card key={title} className="p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/20">
-                <p className="font-display text-sm uppercase tracking-[0.18em] text-cyan-300">
-                  {title}
-                </p>
-                <p className="mt-2 text-sm text-slate-400">{text}</p>
-              </Card>
-            ))}
-          </div>
         </div>
 
         <motion.div
@@ -133,6 +119,24 @@ export default function LandingPage() {
             </div>
           </Card>
         </motion.div>
+
+        <div className="grid gap-5 sm:grid-cols-3 lg:col-span-2">
+          {[
+            ["Realtime Brackets", "Socket-driven tournament updates"],
+            ["Team Workflow", "Invite-code rosters and approvals"],
+            ["Admin Controls", "Generate, reset, and score matches"]
+          ].map(([title, text]) => (
+            <Card
+              key={title}
+              className="min-h-36 p-6 transition hover:-translate-y-0.5 hover:border-cyan-400/20"
+            >
+              <p className="font-display text-sm uppercase tracking-[0.18em] text-cyan-300">
+                {title}
+              </p>
+              <p className="mt-3 text-base leading-7 text-slate-400">{text}</p>
+            </Card>
+          ))}
+        </div>
       </section>
 
       <section className="mt-20 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
