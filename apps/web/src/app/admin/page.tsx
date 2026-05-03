@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, RotateCcw, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, CalendarDays, RotateCcw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/page-shell";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -34,6 +34,149 @@ type ConfirmState =
       loading: boolean;
       onConfirm: () => Promise<void>;
     };
+
+const formatDateTimeInput = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 12);
+  const day = digits.slice(0, 2);
+  const month = digits.slice(2, 4);
+  const year = digits.slice(4, 8);
+  const hour = digits.slice(8, 10);
+  const minute = digits.slice(10, 12);
+
+  return [
+    day,
+    month ? `.${month}` : "",
+    year ? `.${year}` : "",
+    hour ? ` ${hour}` : "",
+    minute ? `:${minute}` : ""
+  ].join("");
+};
+
+const parseDateTimeParts = (value: string) => {
+  const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, dayRaw, monthRaw, yearRaw, hourRaw, minuteRaw] = match;
+  return {
+    day: Number(dayRaw),
+    month: Number(monthRaw),
+    year: Number(yearRaw),
+    hour: Number(hourRaw),
+    minute: Number(minuteRaw)
+  };
+};
+
+const padDatePart = (value: number) => String(value).padStart(2, "0");
+
+const dateTimeInputToPickerValue = (value: string) => {
+  const parts = parseDateTimeParts(value);
+
+  if (!parts) {
+    return "";
+  }
+
+  return `${parts.year}-${padDatePart(parts.month)}-${padDatePart(parts.day)}T${padDatePart(parts.hour)}:${padDatePart(parts.minute)}`;
+};
+
+const pickerValueToDateTimeInput = (value: string) => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+
+  if (!match) {
+    return "";
+  }
+
+  const [, year, month, day, hour, minute] = match;
+  return `${day}.${month}.${year} ${hour}:${minute}`;
+};
+
+const parseDateTimeInput = (value: string, fieldName: string) => {
+  const parts = parseDateTimeParts(value);
+
+  if (!parts) {
+    throw new Error(`${fieldName}: use DD.MM.YYYY HH:mm`);
+  }
+
+  const { day, month, year, hour, minute } = parts;
+  const date = new Date(year, month - 1, day, hour, minute);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute
+  ) {
+    throw new Error(`${fieldName}: invalid date or time`);
+  }
+
+  return date.toISOString();
+};
+
+function DateTimeField({
+  value,
+  onChange,
+  placeholder,
+  pickerLabel
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  pickerLabel: string;
+}) {
+  const pickerRef = useRef<HTMLInputElement>(null);
+
+  const openPicker = () => {
+    const picker = pickerRef.current;
+
+    if (!picker) {
+      return;
+    }
+
+    const pickerWithShowPicker = picker as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+
+    if (typeof pickerWithShowPicker.showPicker === "function") {
+      pickerWithShowPicker.showPicker();
+      return;
+    }
+
+    picker.click();
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        className="pr-12"
+        inputMode="numeric"
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(formatDateTimeInput(event.target.value))}
+      />
+      <button
+        type="button"
+        aria-label={pickerLabel}
+        title={pickerLabel}
+        className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-xl text-slate-300 transition hover:bg-white/10 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
+        onClick={openPicker}
+      >
+        <CalendarDays className="size-4" />
+      </button>
+      <input
+        ref={pickerRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute right-4 top-1/2 size-px -translate-y-1/2 opacity-0"
+        tabIndex={-1}
+        type="datetime-local"
+        value={dateTimeInputToPickerValue(value)}
+        onChange={(event) => onChange(pickerValueToDateTimeInput(event.target.value))}
+      />
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -134,21 +277,26 @@ export default function AdminPage() {
               <option value="SINGLE_ELIMINATION">Single Elimination</option>
               <option value="DOUBLE_ELIMINATION">Double Elimination</option>
             </select>
-            <Input
-              type="datetime-local"
+            <DateTimeField
+              pickerLabel="Choose registration close date"
+              placeholder="Registration closes DD.MM.YYYY HH:mm"
               value={form.registrationClosesAt}
-              onChange={(event) =>
+              onChange={(value) =>
                 setForm((current) => ({
                   ...current,
-                  registrationClosesAt: event.target.value
+                  registrationClosesAt: value
                 }))
               }
             />
-            <Input
-              type="datetime-local"
+            <DateTimeField
+              pickerLabel="Choose start date"
+              placeholder="Start date DD.MM.YYYY HH:mm"
               value={form.startDate}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, startDate: event.target.value }))
+              onChange={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  startDate: value
+                }))
               }
             />
           </div>
@@ -161,8 +309,11 @@ export default function AdminPage() {
                   method: "POST",
                   body: JSON.stringify({
                     ...form,
-                    startDate: new Date(form.startDate).toISOString(),
-                    registrationClosesAt: new Date(form.registrationClosesAt).toISOString()
+                    startDate: parseDateTimeInput(form.startDate, "Start date"),
+                    registrationClosesAt: parseDateTimeInput(
+                      form.registrationClosesAt,
+                      "Registration closes"
+                    )
                   })
                 });
                 toast.success("Tournament created");
